@@ -1,5 +1,7 @@
 {
   "name": "Gardening Assistant",
   "description": "An AI-powered gardening assistant that identifies plants from photos and provides detailed care instructions through an interactive chat interface.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }
