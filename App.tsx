@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, ChatSession, ImagePart, WeatherData, CalendarTask, Reminder, GardenGrid } from './types';
 import { generateContent } from './services/gemini';
 import { BotIcon, PlantIcon, SendIcon, UploadIcon, UserIcon, PlusIcon, TrashIcon, MenuIcon, CloseIcon, EditIcon, CheckIcon, ExportIcon, LocationMarkerIcon, CloudIcon, SunIcon, CloudRainIcon, SnowIcon, LightningBoltIcon, CalendarIcon, BellIcon, LayoutIcon } from './components/Icons';
-import { Spinner } from './components/Spinner';
+import { TypingIndicator } from './components/Spinner';
 
 // Make TS aware of the jsPDF global object from the script tag
 declare global {
@@ -109,7 +109,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   if (isEditing) {
     return (
-      <div className="flex items-start gap-3 w-full max-w-2xl mx-auto flex-row-reverse">
+      <div className="flex items-start gap-3 w-full max-w-2xl mx-auto flex-row-reverse animate-fade-in-up">
         <div className="w-8 h-8 flex-shrink-0 bg-gray-800 rounded-full flex items-center justify-center mt-1">
           <UserIcon className="w-5 h-5 text-green-400" />
         </div>
@@ -139,7 +139,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const flexClasses = isUser ? 'flex-row-reverse' : 'flex-row';
 
   return (
-    <div className={`group flex items-start gap-3 w-full max-w-2xl mx-auto ${flexClasses}`}>
+    <div className={`group flex items-start gap-3 w-full max-w-2xl mx-auto ${flexClasses} animate-fade-in-up`}>
       <div className="w-8 h-8 flex-shrink-0 bg-gray-800 rounded-full flex items-center justify-center mt-1">
         <Icon className={`w-5 h-5 ${isUser ? 'text-green-400' : 'text-blue-400'}`} />
       </div>
@@ -267,7 +267,7 @@ const CalendarPanel = ({
           {isLoading ? (
             <div className="flex justify-center items-center h-full">
               <div className="flex flex-col items-center gap-2 text-gray-400">
-                <Spinner />
+                <TypingIndicator />
                 <p>Generating your personalized calendar...</p>
               </div>
             </div>
@@ -605,7 +605,7 @@ const GardenPlannerPanel = ({
               <div className="flex-1 overflow-y-auto pr-2">
                 {isSuggestionsLoading ? (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                        <Spinner />
+                        <TypingIndicator />
                         <p className="mt-2">Analyzing your layout...</p>
                     </div>
                 ) : suggestions ? (
@@ -1324,12 +1324,12 @@ const App: React.FC = () => {
               />
             ))}
             {isLoading && !editingState && (
-              <div className="flex items-start gap-3 w-full max-w-2xl mx-auto flex-row">
+              <div className="flex items-start gap-3 w-full max-w-2xl mx-auto flex-row animate-fade-in-up">
                   <div className="w-8 h-8 flex-shrink-0 bg-gray-800 rounded-full flex items-center justify-center mt-1">
                       <BotIcon className="w-5 h-5 text-blue-400" />
                   </div>
                   <div className="p-4 rounded-xl shadow-md bg-gray-700/70 self-start">
-                      <Spinner />
+                      <TypingIndicator />
                   </div>
               </div>
             )}

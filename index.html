@@ -21,6 +21,34 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #718096; /* gray-500 */
       }
+
+      /* Animation for new messages */
+      @keyframes fade-in-up {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.4s ease-out forwards;
+      }
+
+      /* Animation for typing indicator dots */
+      @keyframes pulse-dot {
+        0%, 100% {
+          opacity: 0.3;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .animate-pulse-dot {
+        animation: pulse-dot 1.4s infinite ease-in-out;
+      }
     </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script type="importmap">
