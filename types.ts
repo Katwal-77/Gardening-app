@@ -3,9 +3,18 @@ export interface ImagePart {
   data: string;
 }
 
+export interface PlantIdentificationContent {
+  type: 'plantIdentification';
+  plantName: string;
+  confidence: number; // Percentage 0-100
+  careInstructions: string; // Markdown content
+  userFeedback?: 'correct' | 'incorrect';
+  correctedName?: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'model';
-  content: string | { promptText: string; imageUrl: string };
+  content: string | { promptText: string; imageUrl: string } | PlantIdentificationContent;
 }
 
 export interface ChatSession {

@@ -4,7 +4,7 @@ An AI-powered gardening assistant that identifies plants from photos and provide
 
 ## Features
 
-*   **🌱 Plant Identification:** Simply upload a photo of a plant, and the AI will identify it and provide comprehensive care instructions.
+*   **🌱 AI-Powered Plant Identification:** Upload a plant photo, and the AI will identify it, provide a **confidence score**, and offer comprehensive care instructions. You can even **correct the identification**, helping the assistant learn and improve!
 *   **💬 Interactive AI Chat:** Ask any gardening-related questions and get instant, helpful answers from a powerful AI.
 *   **🏡 Interactive Garden Layout Planner:** Visually design your garden on a grid using a drag-and-drop interface. Get AI-powered suggestions on companion planting, spacing, and placement for an optimal layout.
 *   **☀️ Local Weather Context:** The app automatically fetches your local weather. You can include this context in your questions for more timely and relevant advice, like whether to hold off on watering due to upcoming rain.

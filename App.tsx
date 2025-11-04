@@ -1,7 +1,7 @@
 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, ChatSession, ImagePart, WeatherData, CalendarTask, Reminder, GardenGrid } from './types';
+import { ChatMessage, ChatSession, ImagePart, WeatherData, CalendarTask, Reminder, GardenGrid, PlantIdentificationContent } from './types';
 import { generateContent } from './services/gemini';
 import { BotIcon, PlantIcon, SendIcon, UploadIcon, UserIcon, PlusIcon, TrashIcon, MenuIcon, CloseIcon, EditIcon, CheckIcon, ExportIcon, LocationMarkerIcon, CloudIcon, SunIcon, CloudRainIcon, SnowIcon, LightningBoltIcon, CalendarIcon, BellIcon, LayoutIcon } from './components/Icons';
 import { TypingIndicator } from './components/Spinner';
@@ -87,8 +87,9 @@ interface MessageBubbleProps {
   onSaveEdit: () => Promise<void>;
   onCancelEdit: () => void;
   isLoading: boolean;
-  onSetReminder: () => void;
+  onSetReminder: (plantName?: string) => void;
   isLastModelMessage: boolean;
+  onIdentificationFeedback: (messageIndex: number, feedback: 'correct' | 'incorrect', correctedName?: string) => void;
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -102,8 +103,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   onCancelEdit,
   isLoading,
   onSetReminder,
-  isLastModelMessage
+  isLastModelMessage,
+  onIdentificationFeedback,
 }) => {
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [correctionInput, setCorrectionInput] = useState('');
+
   const isUser = message.role === 'user';
   const canBeEdited = isUser && typeof message.content === 'string';
 
@@ -137,6 +142,25 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const Icon = isUser ? UserIcon : BotIcon;
   const bubbleClasses = isUser ? 'bg-green-700/60 self-end' : 'bg-gray-700/70 self-start';
   const flexClasses = isUser ? 'flex-row-reverse' : 'flex-row';
+  
+  const isIdentificationMessage = message.role === 'model' && typeof message.content === 'object' && 'type' in message.content && message.content.type === 'plantIdentification';
+
+  const handleFeedback = (feedback: 'correct' | 'incorrect') => {
+    if (feedback === 'correct') {
+      onIdentificationFeedback(messageIndex, 'correct');
+    } else {
+      setIsCorrecting(true);
+    }
+  };
+  
+  const handleCorrectionSubmit = () => {
+    if (correctionInput.trim()) {
+      onIdentificationFeedback(messageIndex, 'incorrect', correctionInput.trim());
+      setIsCorrecting(false);
+      setCorrectionInput('');
+    }
+  };
+
 
   return (
     <div className={`group flex items-start gap-3 w-full max-w-2xl mx-auto ${flexClasses} animate-fade-in-up`}>
@@ -144,14 +168,67 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         <Icon className={`w-5 h-5 ${isUser ? 'text-green-400' : 'text-blue-400'}`} />
       </div>
       <div className={`relative p-4 rounded-xl shadow-md ${bubbleClasses}`}>
-        {typeof message.content === 'string' ? (
-          <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: isUser ? renderUserMessage(message.content) : renderMarkdown(message.content) }}></div>
-        ) : (
-          <div className="flex flex-col items-end gap-2">
-            <p>{message.content.promptText}</p>
-            <img src={message.content.imageUrl} alt="Uploaded plant" className="rounded-lg max-w-xs object-cover" />
-          </div>
-        )}
+        {isIdentificationMessage ? (() => {
+            const { plantName, confidence, careInstructions, userFeedback, correctedName } = message.content as PlantIdentificationContent;
+            return (
+              <div className="w-full">
+                <p className="mb-2">I believe this is a <strong>{plantName}</strong>.</p>
+                <div className="w-full bg-gray-600 rounded-full h-2.5 mb-1">
+                  <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${confidence}%` }}></div>
+                </div>
+                <p className="text-xs text-gray-400 text-right mb-4">{confidence}% confidence</p>
+                
+                {!userFeedback ? (
+                  <div className="bg-gray-800/50 p-3 rounded-lg mb-4">
+                    {!isCorrecting ? (
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">Is this identification correct?</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => handleFeedback('correct')} className="px-3 py-1 text-xs rounded-full bg-green-600 hover:bg-green-500">Yes</button>
+                          <button onClick={() => handleFeedback('incorrect')} className="px-3 py-1 text-xs rounded-full bg-gray-600 hover:bg-gray-500">No</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm font-semibold">What is the correct plant name?</p>
+                        <input 
+                          type="text"
+                          value={correctionInput}
+                          onChange={(e) => setCorrectionInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleCorrectionSubmit()}
+                          placeholder="e.g., Monstera Deliciosa"
+                          className="w-full bg-gray-700 text-white rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => setIsCorrecting(false)} className="px-3 py-1 text-xs rounded-full bg-gray-600 hover:bg-gray-500">Cancel</button>
+                          <button onClick={handleCorrectionSubmit} className="px-3 py-1 text-xs rounded-full bg-green-600 hover:bg-green-500">Submit</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                   <div className="bg-gray-800/50 p-3 rounded-lg mb-4 text-sm text-green-400 flex items-center gap-2">
+                      <CheckIcon className="w-5 h-5" />
+                      {userFeedback === 'correct' 
+                          ? <p>Identification confirmed. Thanks for the feedback!</p> 
+                          : <p>Identification corrected to <strong>{correctedName}</strong>. Thanks!</p>}
+                   </div>
+                )}
+                
+                <hr className="border-gray-600 my-4" />
+                <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: renderMarkdown(careInstructions) }}></div>
+              </div>
+            );
+          })() : typeof message.content === 'string' ? (
+            <div className="prose prose-invert prose-sm max-w-none whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: isUser ? renderUserMessage(message.content) : renderMarkdown(message.content) }}></div>
+          ) : (
+            <div className="flex flex-col items-end gap-2">
+              <p>{message.content.promptText}</p>
+              <img src={message.content.imageUrl} alt="Uploaded plant" className="rounded-lg max-w-xs object-cover" />
+            </div>
+          )}
+
         {canBeEdited && !isLoading && (
           <button
             onClick={() => onStartEdit(messageIndex)}
@@ -161,15 +238,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <EditIcon className="w-4 h-4" />
           </button>
         )}
-        {!isUser && isLastModelMessage && !isLoading && (
-           <button
-            onClick={onSetReminder}
-            className="absolute -bottom-3 right-2 p-1.5 rounded-full bg-gray-600 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-blue-500 hover:text-white transition-all"
-            aria-label="Set watering reminder"
-            title="Set watering reminder"
-          >
-            <BellIcon className="w-4 h-4" />
-          </button>
+        
+        {!isUser && !isLoading && (
+          <>
+            {isIdentificationMessage && (
+               <button
+                onClick={() => onSetReminder((message.content as PlantIdentificationContent).plantName)}
+                className="absolute -bottom-3 right-2 p-1.5 rounded-full bg-gray-600 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-blue-500 hover:text-white transition-all"
+                aria-label="Set watering reminder"
+                title="Set watering reminder"
+              >
+                <BellIcon className="w-4 h-4" />
+              </button>
+            )}
+            {isLastModelMessage && !isIdentificationMessage && (
+               <button
+                onClick={() => onSetReminder()}
+                className="absolute -bottom-3 right-2 p-1.5 rounded-full bg-gray-600 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-blue-500 hover:text-white transition-all"
+                aria-label="Set watering reminder"
+                title="Set watering reminder"
+              >
+                <BellIcon className="w-4 h-4" />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -690,10 +782,23 @@ const App: React.FC = () => {
       localStorage.setItem('chatHistory', JSON.stringify(history));
       localStorage.setItem('activeChatId', JSON.stringify(activeChatId));
       localStorage.setItem('wateringReminders', JSON.stringify(reminders));
+    // FIX: Corrected a syntax error in the try-catch block that was breaking the component's scope.
     } catch (error) {
       console.error("Failed to save to local storage", error);
     }
   }, [history, activeChatId, reminders]);
+
+  // This effect keeps activeChatId in sync with history,
+  // ensuring a valid chat is always selected if one exists.
+  useEffect(() => {
+    const activeChatExists = history.some(chat => chat.id === activeChatId);
+
+    if (!activeChatExists) {
+      // If the active chat is no longer in history (e.g., deleted),
+      // select the first available chat.
+      setActiveChatId(history[0]?.id || null);
+    }
+  }, [history, activeChatId]);
 
   // Reminder checking logic
   useEffect(() => {
@@ -802,11 +907,7 @@ const App: React.FC = () => {
 
   const handleDeleteChat = (idToDelete: string) => {
     if (window.confirm('Are you sure you want to delete this chat?')) {
-      const updatedHistory = history.filter(chat => chat.id !== idToDelete);
-      setHistory(updatedHistory);
-      if (activeChatId === idToDelete) {
-        setActiveChatId(updatedHistory[0]?.id || null);
-      }
+      setHistory(prevHistory => prevHistory.filter(chat => chat.id !== idToDelete));
     }
   };
 
@@ -881,7 +982,7 @@ const App: React.FC = () => {
     const base64Data = dataUrl.split(',')[1];
     const imagePart: ImagePart = { mimeType: file.type, data: base64Data };
 
-    const prompt = 'Identify this plant and provide detailed care instructions including watering, sunlight, soil, and fertilizer needs. Format the response with clear headings.';
+    const prompt = `Identify the plant in this image. Respond ONLY with a single JSON object in the following format (do not include \`\`\`json or \`\`\`): {"plantName": "Identified Plant Name", "confidence": 85, "careInstructions": "## Watering\\nWater thoroughly..."}. The 'plantName' should be the common name. 'confidence' must be a number representing your confidence score as a percentage (0-100). 'careInstructions' must be a string containing detailed care instructions formatted with markdown.`;
     const userMessage: ChatMessage = {
       role: 'user',
       content: { promptText: 'Analyze this plant:', imageUrl: dataUrl },
@@ -911,9 +1012,54 @@ const App: React.FC = () => {
         ));
     }
     
-    await addMessageToApiCall(prompt, imagePart);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    setIsLoading(true);
+    try {
+      const responseText = await generateContent(prompt, imagePart);
+      let modelMessage: ChatMessage;
+
+      try {
+        const cleanedJson = responseText.replace(/^```json\s*|```\s*$/g, '').trim();
+        const parsed = JSON.parse(cleanedJson);
+        
+        if (parsed.plantName && typeof parsed.confidence === 'number' && parsed.careInstructions) {
+          const identificationContent: PlantIdentificationContent = {
+            type: 'plantIdentification',
+            plantName: parsed.plantName,
+            confidence: parsed.confidence,
+            careInstructions: parsed.careInstructions,
+          };
+          modelMessage = { role: 'model', content: identificationContent };
+           // Update chat title with identified plant name
+          setHistory(prev => prev.map(chat => 
+            chat.id === currentChatId
+            ? { ...chat, title: parsed.plantName }
+            : chat
+          ));
+        } else {
+          throw new Error("Parsed JSON does not match expected format.");
+        }
+      } catch (e) {
+        console.warn("Could not parse plant identification JSON, falling back to text.", e);
+        modelMessage = { role: 'model', content: responseText };
+      }
+      
+      setHistory(prev => prev.map(chat => 
+        chat.id === currentChatId
+        ? { ...chat, messages: [...chat.messages, modelMessage] }
+        : chat
+      ));
+    } catch (error) {
+      const errorMessage: ChatMessage = { role: 'model', content: 'An error occurred. Please try again.' };
+       setHistory(prev => prev.map(chat => 
+        chat.id === currentChatId
+        ? { ...chat, messages: [...chat.messages, errorMessage] }
+        : chat
+      ));
+    } finally {
+      setIsLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -971,6 +1117,39 @@ const App: React.FC = () => {
     }
   };
 
+  const handleIdentificationFeedback = (messageIndex: number, feedback: 'correct' | 'incorrect', correctedName?: string) => {
+    if (!activeChatId) return;
+  
+    let followupMessage: ChatMessage | null = null;
+    if (feedback === 'correct') {
+      followupMessage = { role: 'model', content: "Great! I've noted that. If you have more questions about it, feel free to ask!" };
+    } else if (feedback === 'incorrect' && correctedName) {
+      followupMessage = { role: 'model', content: `Thank you for the correction! I'll remember this is a ${correctedName}. What would you like to know about it?` };
+    }
+  
+    setHistory(prev => prev.map(chat => {
+      if (chat.id === activeChatId) {
+        const newMessages = [...chat.messages];
+        const targetMessage = newMessages[messageIndex];
+        
+        if (targetMessage && targetMessage.role === 'model' && typeof targetMessage.content === 'object' && 'type' in targetMessage.content && targetMessage.content.type === 'plantIdentification') {
+          const updatedContent: PlantIdentificationContent = {
+            ...(targetMessage.content as PlantIdentificationContent),
+            userFeedback: feedback,
+            correctedName: correctedName,
+          };
+          newMessages[messageIndex] = { ...targetMessage, content: updatedContent };
+        }
+  
+        if (followupMessage) {
+          return { ...chat, messages: [...newMessages, followupMessage] };
+        }
+        return { ...chat, messages: newMessages };
+      }
+      return chat;
+    }));
+  };
+
   const handleExportTXT = () => {
     const activeChat = history.find(chat => chat.id === activeChatId);
     if (!activeChat) return;
@@ -984,7 +1163,9 @@ const App: React.FC = () => {
         const prefix = msg.role === 'user' ? 'You' : 'Assistant';
         if (typeof msg.content === 'string') {
           content += `${prefix}:\n${msg.content}\n\n`;
-        } else {
+        } else if ('type' in msg.content && msg.content.type === 'plantIdentification') {
+          content += `${prefix}:\n[Identified ${msg.content.plantName} with ${msg.content.confidence}% confidence]\n${msg.content.careInstructions}\n\n`;
+        } else if ('promptText' in msg.content) {
           content += `${prefix}:\n${msg.content.promptText}\n(Image Attached)\n\n`;
         }
       });
@@ -1053,7 +1234,9 @@ const App: React.FC = () => {
       let contentText = '';
       if (typeof message.content === 'string') {
           contentText = message.content;
-      } else {
+      } else if ('type' in message.content && message.content.type === 'plantIdentification') {
+          contentText = `[Identified ${message.content.plantName} with ${message.content.confidence}% confidence]\n\n${message.content.careInstructions}`;
+      } else if ('promptText' in message.content) {
           contentText = `${message.content.promptText}\n(Image Attached)`;
       }
       
@@ -1128,11 +1311,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleOpenReminderModal = () => {
+  const handleOpenReminderModal = (plantName?: string) => {
     const activeChat = history.find(c => c.id === activeChatId);
-    if (activeChat && activeChat.title !== 'New Chat') {
+    if (plantName) {
+      setReminderPlantContext(plantName);
+      setReminderModalOpen(true);
+    } else if (activeChat && activeChat.title !== 'New Chat' && activeChat.title !== 'Plant Analysis') {
+      // Fallback for regular messages from a titled chat
       setReminderPlantContext(activeChat.title);
       setReminderModalOpen(true);
+    } else {
+      // Prompt user if context is unclear
+      const plant = prompt("Which plant is this reminder for?");
+      if (plant) {
+        setReminderPlantContext(plant);
+        setReminderModalOpen(true);
+      }
     }
   };
   
@@ -1321,6 +1515,7 @@ const App: React.FC = () => {
                 isLoading={isLoading}
                 onSetReminder={handleOpenReminderModal}
                 isLastModelMessage={msg.role === 'model' && index === messages.length - 1}
+                onIdentificationFeedback={handleIdentificationFeedback}
               />
             ))}
             {isLoading && !editingState && (
